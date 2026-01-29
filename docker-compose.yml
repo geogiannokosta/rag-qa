@@ -1,0 +1,34 @@
+name: rag-qa
+services:
+  rag-qa-ollama:
+    image: ollama/ollama:latest
+    container_name: rag-qa-ollama
+    environment:
+      - GIN_MODE=release
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+    command: serve
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    
+  rag:
+    image: rag-qa:latest
+    build: .
+    container_name: rag-qa
+    depends_on:
+      rag-qa-ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://rag-qa-ollama:11434
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+volumes:
+  ollama:
