@@ -1,18 +1,19 @@
 import logging
 import pickle
 from pathlib import Path
-from rag.embeddings import Embedder
-from PyPDF2 import PdfReader
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 class Retriever:
     def __init__(
             self,
+            embedder,
+            pdf_reader,
             docs_paths: list[str],
             chunk_size: int = 2000,
             overlap_ratio: float = 0.15,  # 10-20% recommended
-            chunking_strategy: str = "basic"
+            chunking_strategy: str = "basic",
+            save: bool = True
 
     ):
         self.documents = []
@@ -20,13 +21,14 @@ class Retriever:
         self.overlap = int(chunk_size * overlap_ratio)
         self.step = chunk_size - self.overlap
         self.chunking_strategy = chunking_strategy
+        self.pdf_reader = pdf_reader
+        self.save = save
 
-        try:
-            self.embedder = Embedder()
+        if embedder:
+            self.embedder = embedder
             self.use_embbeder = True
-            # raise Exception
-        except Exception as e:
-            logging.warning("Nomic embedding unavailable, falling back to TF-IDF: ", e)
+        else:
+            logging.warning("Embeddinggemma unavailable, falling back to TF-IDF: ")
             self.use_embbeder = False
             self.vectorizer = TfidfVectorizer()
             self.tfidf_matrix = None
@@ -71,9 +73,9 @@ class Retriever:
             # Process Pdfs
             logging.info(f"Processing and embedding {path}")
             data_to_store = []
-            pdfReader = PdfReader(path)
+            pdf_reader = self.pdf_reader(path)
 
-            for page_num, page in enumerate(pdfReader.pages, start=1):
+            for page_num, page in enumerate(pdf_reader.pages, start=1):
                 text = page.extract_text()
                 if not text:
                     continue
@@ -103,11 +105,12 @@ class Retriever:
                     self.documents.append(chunk_data)
                     chunk_id += 1
             
-            # Save to storage 
-            with open(pickle_file, "wb") as f:
-                pickle.dump(data_to_store, f)
+            if self.save:
+                # Save to storage 
+                with open(pickle_file, "wb") as f:
+                    pickle.dump(data_to_store, f)
 
-            logging.info(f"Saved embeddings to {pickle_file}")
+                logging.info(f"Saved embeddings to {pickle_file}")
 
         # TF-IDF fallback
         if not self.use_embbeder:
