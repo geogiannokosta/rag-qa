@@ -1,4 +1,6 @@
 from rag.retriever import Retriever
+from rag.embeddings import Embedder
+from PyPDF2 import PdfReader
 from rag.llm import run_llm
 from rag.agent import Agent
 import logging 
@@ -37,7 +39,15 @@ def main():
 
     ensure_models()
 
+    # Try creating embedder, otherwise return None so as to fall to TF-IDF
+    try:
+        embedder = Embedder()
+    except Exception as e:
+        embedder = None
+
     retriever = Retriever(
+        embedder=embedder,
+        pdf_reader=PdfReader,
         docs_paths=[
         "docs/E3 Structure - Document 2.pdf",
         "docs/E10 - Document 3.pdf",
