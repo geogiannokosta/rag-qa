@@ -1,10 +1,4 @@
 from rag.retriever import Retriever
-import os
-    
-# class FakePdfReader:
-#     def __init__(self, path):
-#         # Each file has one "page" with the file content
-#         self.pages = [type('Page', (), {'extract_text': lambda self=None: open(path).read()})()]
 
 def test_tfidf_fallback(pdf_reader, simple_docs):
     # Pass an embedder that will fail
@@ -23,8 +17,5 @@ def test_tfidf_fallback(pdf_reader, simple_docs):
     results = retriever.retrieve("page content")
     assert len(results) > 0
     print(results)
-    # The score should be > 0 because 'document' exists in texts
+    # The score should be > 0 because 'page content' exists in texts
     assert all(score > 0 for _, score in results)
-
-    # os.remove("storage/doc0.pkl")
-    # os.remove("storage/doc1.pkl")
