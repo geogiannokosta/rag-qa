@@ -3,9 +3,11 @@ from rag.embeddings import Embedder
 from PyPDF2 import PdfReader
 from rag.llm import run_llm
 from rag.agent import Agent
+from rag.utils.question_validation import QValidator
 import logging 
 import argparse
 import ollama
+import time
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
@@ -37,7 +39,15 @@ def main():
 
     print_banner()
 
-    ensure_models()
+    # Wait for Ollama server to be available
+    while True:
+        try:
+            ensure_models()
+            break
+        except Exception as e:
+            logging.error("Cannot set up the required Ollama models. ", e)
+            logging.info("Will try again in 1 minute.")
+            time.sleep(60)
 
     # Try creating embedder, otherwise return None so as to fall to TF-IDF
     try:
@@ -57,9 +67,15 @@ def main():
     )
 
     agent = Agent(retriever, run_llm)
+    qvalidator = QValidator()
 
     while True:
         question = input("Ask a question: ")
+        valid, error_code = qvalidator.validate_question(question)
+        if not valid:
+            print_answer(qvalidator.human_readable_message(error_code))
+            continue
+        
         answer, log = agent.run(question)
 
         print_answer(answer)
@@ -86,7 +102,6 @@ def print_answer(answer: str):
     print(" ANSWER ".center(80, "-"))
     print("-" * 80)
     print(answer.strip())
-    # print("-" * 80 + "\n")
 
 def print_log(log: dict):
     print("\n" + "-" * 80)
@@ -102,7 +117,6 @@ def print_log(log: dict):
         print(
             f"  {i}. {r['file']} "
             f"(chunk {r['chunk_id']}, score={r['score']:.3f})\n"
-            # f"{r['text']}"
         )
 
     print("\nLatency (ms):")

@@ -118,19 +118,19 @@ class Retriever:
                 [d["text"] for d in self.documents]
             )
 
-    def retrieve(self, query: str, top_k: int = 3):
+    def retrieve(self, question: str, top_k: int = 3):
         """
         Returns top_k (document, score) pairs
         """
 
         if self.use_embbeder:
-            query_vector = self.embedder.embed(query)
+            question_vector = self.embedder.embed(question)
             scores = [
-                cosine_similarity([query_vector], [d["embedding"]])[0][0] for d in self.documents
+                cosine_similarity([question_vector], [d["embedding"]])[0][0] for d in self.documents
             ]
         else:
-            query_vector = self.vectorizer.transform([query])
-            scores = cosine_similarity(query_vector, self.tfidf_matrix)[0]
+            question_vector = self.vectorizer.transform([question])
+            scores = cosine_similarity(question_vector, self.tfidf_matrix)[0]
 
         ranked = sorted(
             zip(self.documents, scores),
