@@ -2,7 +2,7 @@ import pytest
 from rag.agent import Agent
 
 class FakeRetriever:
-    def retrieve(self, query, top_k=3):
+    def retrieve(self, question, top_k=3):
         return [
             ({"text": f"text {i}", "metadata": {"file": f"doc{i}.pdf", "page": i, "chunk_id": i}}, 0.5)
             for i in range(top_k)
