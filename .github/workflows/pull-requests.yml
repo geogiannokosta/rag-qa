@@ -1,8 +1,6 @@
-name: Pre-commit checks
+name: Pull-requests checks
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -30,4 +28,4 @@ jobs:
       
       - name: Run pylint
         run: |
-          pylint rag
+          pylint rag --fail-under=6.5

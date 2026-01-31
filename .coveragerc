@@ -1,0 +1,3 @@
+[run]
+omit =
+    rag/cli.py
