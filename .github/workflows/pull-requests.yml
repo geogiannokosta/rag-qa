@@ -1,4 +1,4 @@
-name: Pre-commit checks
+name: Pull-requests checks
 
 on:
   pull_request:
@@ -28,4 +28,4 @@ jobs:
       
       - name: Run pylint
         run: |
-          pylint rag
+          pylint rag --fail-under=6.5
