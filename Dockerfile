@@ -23,5 +23,8 @@ RUN pip install --upgrade pip \
 # Copy project
 COPY . .
 
+# Install pyproject.toml
+RUN pip install .
+
 # Run command 
-CMD ["python", "run.py"]
+ENTRYPOINT ["rag-qa"]

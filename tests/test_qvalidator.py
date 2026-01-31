@@ -1,5 +1,5 @@
 import pytest
-from rag.utils.question_validation import QValidator  
+from rag.utils.validator import QValidator  
 
 @pytest.fixture
 def validator():

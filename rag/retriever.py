@@ -14,7 +14,6 @@ class Retriever:
             overlap_ratio: float = 0.15,  # 10-20% recommended
             chunking_strategy: str = "basic",
             save: bool = True
-
     ):
         self.documents = []
         self.chunk_size = chunk_size
@@ -58,7 +57,7 @@ class Retriever:
 
             # Load from storage
             if pickle_file.exists():
-                logging.info(f"Loading cached embeddings for {path}")
+                logging.info("Loading cached embeddings for %s", path)
                 with open(pickle_file, "rb") as f:
                     saved_docs = pickle.load(f)
 
@@ -71,7 +70,7 @@ class Retriever:
                 continue
 
             # Process Pdfs
-            logging.info(f"Processing and embedding {path}")
+            logging.info("Processing and embedding %s", path)
             data_to_store = []
             pdf_reader = self.pdf_reader(path)
 
@@ -84,7 +83,7 @@ class Retriever:
                     chunks = self._semantic_chunk_text(text)
                 else:
                     chunks = self._chunk_text(text)
-                
+
                 for chunk in chunks:
                     embedding = None
 
@@ -104,13 +103,13 @@ class Retriever:
                     data_to_store.append(chunk_data)
                     self.documents.append(chunk_data)
                     chunk_id += 1
-            
+
             if self.save:
-                # Save to storage 
+                # Save to storage
                 with open(pickle_file, "wb") as f:
                     pickle.dump(data_to_store, f)
 
-                logging.info(f"Saved embeddings to {pickle_file}")
+                logging.info("Saved embeddings to %s", pickle_file)
 
         # TF-IDF fallback
         if not self.use_embbeder:
