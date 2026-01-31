@@ -3,11 +3,12 @@ from rag.embeddings import Embedder
 from PyPDF2 import PdfReader
 from rag.llm import run_llm
 from rag.agent import Agent
-from rag.utils.question_validation import QValidator
+from rag.utils.validator import QValidator
 import logging 
 import argparse
 import ollama
 import time
+import os
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
@@ -29,6 +30,10 @@ def ensure_models():
 def main():
     parser = argparse.ArgumentParser(description="RAG CLI")
     parser.add_argument(
+        "question",
+        help="Question to ask",
+    )
+    parser.add_argument(
         "--chunking",
         choices=["basic", "semantic"],
         default="basic",
@@ -45,7 +50,7 @@ def main():
             ensure_models()
             break
         except Exception as e:
-            logging.error("Cannot set up the required Ollama models. ", e)
+            logging.error("Cannot set up the required Ollama models.", e)
             logging.info("Will try again in 1 minute.")
             time.sleep(60)
 
@@ -55,31 +60,27 @@ def main():
     except Exception as e:
         embedder = None
 
+    docs_path = "docs/"
     retriever = Retriever(
         embedder=embedder,
         pdf_reader=PdfReader,
-        docs_paths=[
-        "docs/E3 Structure - Document 2.pdf",
-        "docs/E10 - Document 3.pdf",
-        "docs/ICD - Document 1.pdf"
-        ],
+        docs_paths = [doc_path for doc_path in os.listdir(docs_path) if doc_path.endswith(".pdf")],
         chunking_strategy=args.chunking
     )
 
     agent = Agent(retriever, run_llm)
     qvalidator = QValidator()
 
-    while True:
-        question = input("Ask a question: ")
-        valid, error_code = qvalidator.validate_question(question)
-        if not valid:
-            print_answer(qvalidator.human_readable_message(error_code))
-            continue
-        
-        answer, log = agent.run(question)
+    question = args.question
+    valid, error_code = qvalidator.validate_question(question)
+    if not valid:
+        print_answer(qvalidator.human_readable_message(error_code))
+        return
+    
+    answer, log = agent.run(question)
 
-        print_answer(answer)
-        print_log(log)
+    print_answer(answer)
+    print_log(log)
 
 def print_banner():
     banner = """

@@ -59,7 +59,7 @@ class Agent:
         }
 
         return response, log
-    
+
     def _create_prompt(self, question, retrieved):
         context_blocks = []
         sources = []
