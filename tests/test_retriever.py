@@ -50,7 +50,6 @@ def test_basic_chunking_produces_chunks(retriever, sample_text):
 
 def test_chunk_overlap(retriever):
     texts = [doc["text"] for doc in retriever.documents]
-    print(texts)
     overlap_len = int(20 * 0.2)
 
     for i in range(1, len(texts)):

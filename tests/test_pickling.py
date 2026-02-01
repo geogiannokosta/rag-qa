@@ -11,11 +11,10 @@ def test_pickle_caching(simple_docs, embedder, pdf_reader, tmp_path):
     retriever1 = Retriever(
         embedder=embedder,
         pdf_reader=pdf_reader,
-        docs_paths=simple_docs,
-        chunk_size=50
+        docs_paths=simple_docs
     )
     
-    pickle_file = Path("storage") / f"{Path(simple_docs[0]).stem}.pkl"
+    pickle_file = Path("storage") / f"{Path(simple_docs[0]).stem}_basic.pkl"
     assert pickle_file.exists()  # Pickle file should be created
 
     # Read pickle content
@@ -26,8 +25,7 @@ def test_pickle_caching(simple_docs, embedder, pdf_reader, tmp_path):
     retriever2 = Retriever(
         embedder=embedder,
         pdf_reader=pdf_reader,
-        docs_paths=simple_docs,
-        chunk_size=50
+        docs_paths=simple_docs
     )
 
     # Compare only text and metadata fields, ignore embedding identity
@@ -39,4 +37,4 @@ def test_pickle_caching(simple_docs, embedder, pdf_reader, tmp_path):
         assert len(d1["embedding"]) == len(d2["embedding"])
         assert all(abs(a - b) < 1e-6 for a, b in zip(d1["embedding"], d2["embedding"]))
 
-    os.remove("storage/doc0.pkl")
+    os.remove("storage/doc0_basic.pkl")

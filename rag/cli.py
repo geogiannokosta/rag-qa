@@ -1,3 +1,18 @@
+"""
+Command-line interface for running a Retrieval-Augmented Generation (RAG) pipeline.
+
+This CLI:
+- Validates user questions
+- Ensures required Ollama models are available
+- Initializes retrieval and embedding components
+- Executes a RAG agent
+- Displays the generated answer and a structured execution log
+
+It is intended as a lightweight, user-facing entry point and is excluded from
+coverage and strict linting rules where appropriate.
+"""
+
+import json
 from rag.retriever import Retriever
 from rag.embeddings import Embedder
 from PyPDF2 import PdfReader
@@ -10,9 +25,22 @@ import ollama
 import time
 import os
 
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+# Silence Ollama logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 def ensure_models():
+    """
+    Ensure that all required Ollama models are available.
+
+    If a required model is missing, it will be pulled automatically.
+    This function blocks until all models are present.
+    """
     REQUIRED_MODELS = [
         "phi3:latest",
         "embeddinggemma:latest"
@@ -22,16 +50,33 @@ def ensure_models():
 
     for model in REQUIRED_MODELS:
         if model not in existing:
-            logging.info(f"Pulling model: {model}")
+            logger.info(f"Pulling model: {model}")
             ollama.pull(model)
         else:
-            logging.info(f"Model already present: {model}")
+            logger.info(f"Model already present: {model}")
 
 def main():
+    """
+    Entry point for the RAG CLI.
+
+    This function:
+    - Parses CLI arguments
+    - Displays a banner
+    - Ensures required LLM and embedding models are available
+    - Initializes retrieval and agent components
+    - Validates the user question
+    - Executes the RAG workflow and prints results
+    """
     parser = argparse.ArgumentParser(description="RAG CLI")
     parser.add_argument(
         "question",
         help="Question to ask",
+    )
+    parser.add_argument(
+        "--top_k",
+        default=3,
+        type=int,
+        help="Number of top document chunks to retrieve"
     )
     parser.add_argument(
         "--chunking",
@@ -39,10 +84,20 @@ def main():
         default="basic",
         help="Chunking strategy to use"
     )
+    parser.add_argument(
+        "--chunk_size",
+        default=2000,
+        help="Chunk size to use"
+    )
+    parser.add_argument(
+        "--overlap_ratio",
+        default=0.15,
+        help="Chunk overlap ratio to use"
+    )
 
     args = parser.parse_args()
 
-    print_banner()
+    log_banner()
 
     # Wait for Ollama server to be available
     while True:
@@ -50,8 +105,8 @@ def main():
             ensure_models()
             break
         except Exception as e:
-            logging.error("Cannot set up the required Ollama models.", e)
-            logging.info("Will try again in 1 minute.")
+            logger.exception("Cannot set up the required Ollama models. %s", e)
+            logger.info("Will try again in 1 minute.")
             time.sleep(60)
 
     # Try creating embedder, otherwise return None so as to fall to TF-IDF
@@ -64,8 +119,10 @@ def main():
     retriever = Retriever(
         embedder=embedder,
         pdf_reader=PdfReader,
-        docs_paths = [doc_path for doc_path in os.listdir(docs_path) if doc_path.endswith(".pdf")],
-        chunking_strategy=args.chunking
+        docs_paths = [docs_path + doc_path for doc_path in os.listdir(docs_path) if doc_path.endswith(".pdf")],
+        chunking_strategy=args.chunking,
+        chunk_size=args.chunk_size,
+        overlap_ratio=args.overlap_ratio
     )
 
     agent = Agent(retriever, run_llm)
@@ -74,15 +131,15 @@ def main():
     question = args.question
     valid, error_code = qvalidator.validate_question(question)
     if not valid:
-        print_answer(qvalidator.human_readable_message(error_code))
+        log_answer(qvalidator.human_readable_message(error_code))
         return
     
-    answer, log = agent.run(question)
+    answer, log = agent.run(question, args.top_k)
 
-    print_answer(answer)
-    print_log(log)
+    log_answer(answer)
+    log_logs_json(log)
 
-def print_banner():
+def log_banner():
     banner = """
 ══════════════════════════════════════════════════════
         ██████╗  █████╗  ██████╗ 
@@ -96,42 +153,55 @@ def print_banner():
         LLM: phi-3  |  Embeddings: embeddinggemma
 ══════════════════════════════════════════════════════
 """
-    print(banner)
+    logger.info(banner)
 
-def print_answer(answer: str):
-    print("\n" + "-" * 80)
-    print(" ANSWER ".center(80, "-"))
-    print("-" * 80)
-    print(answer.strip())
+def log_answer(answer: str):
+    message = f"""
+{"-" * 80}
+{"ANSWER".center(80)}
+{"-" * 80}
+{answer.strip()}
+"""
+    logger.info(message)
 
-def print_log(log: dict):
-    print("\n" + "-" * 80)
-    print(" EXECUTION LOG ".center(80, "-"))
-    print("-" * 80)
+def log_logs_json(log: dict):
+    """
+    Log the agent execution log as structured JSON.
 
-    print(f"Trace ID : {log['trace_id']}")
-    print(f"Question : {log['question']}")
-    print(f"Plan     : {' → '.join(log['plan'])}")
+    The JSON format matches:
 
-    print("\nRetrieval:")
-    for i, r in enumerate(log["retrieval"], 1):
-        print(
-            f"  {i}. {r['file']} "
-            f"(chunk {r['chunk_id']}, score={r['score']:.3f})\n"
-        )
+    {
+        "trace_id": "...",
+        "question": "...",
+        "plan": [...],
+        "retrieval": [{"file":"a.txt","chunk_id":42,"score":0.78}],
+        "draft_tokens": ...,
+        "latency_ms": {...},
+        "errors": [...]
+    }
 
-    print("\nLatency (ms):")
-    for k, v in log["latency_ms"].items():
-        print(f"  {k:>8}: {v}")
+    :param log: Execution log dictionary from Agent.run()
+    """
+    # Build a minimal structured log
+    structured_log = {
+        "trace_id": log.get("trace_id"),
+        "question": log.get("question"),
+        "plan": log.get("plan"),
+        "retrieval": [
+            {
+                "file": r["file"],
+                "chunk_id": r["chunk_id"],
+                "score": r["score"],
+                "section_path": r.get("section_path", [])
+            }
+            for r in log.get("retrieval", [])
+        ],
+        "draft_tokens": log.get("draft_tokens"),
+        "latency_ms": log.get("latency_ms"),
+        "errors": log.get("errors", []),
+    }
 
-    if log["errors"]:
-        print("\nErrors:")
-        for e in log["errors"]:
-            print(f"  - {e}")
-    else:
-        print("\nErrors: None ✅")
-
-    print("-" * 80 + "\n")
+    logger.info("\n" + json.dumps(structured_log, indent=2))
 
 if __name__ == "__main__":
     main()

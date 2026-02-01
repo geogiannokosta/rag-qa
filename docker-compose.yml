@@ -30,16 +30,14 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://rag-qa-ollama:11434
-    stdin_open: true
-    tty: true
     volumes:
       - rag-qa-storage:/app/storage
 
 networks:
     rag-qa-default:
-        external: true
         name: rag-qa-default
 
 volumes:
   ollama:
   rag-qa-storage:
+    name: rag-qa-storage
